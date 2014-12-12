@@ -1,0 +1,361 @@
+/*Add Intent incremental growth algorithm */
+#include<iostream>
+#include<set>
+#include<algorithm>
+#include<vector>
+#include<string>
+#include<list>
+using namespace std;
+//class of intent
+
+class intent
+{
+
+public:
+    set<string> Intent;// set of attributes i.e. Intent
+    bool subset(intent small,intent big);//check if small is the subset of big
+    set<string> intersection(intent i1,intent i2);//find intersection
+    set<string> setunion(intent i1,intent i2);//find union
+};
+bool intent:: subset(intent small,intent big)//function to check for subset
+{
+
+    if(includes(big.Intent.begin(),big.Intent.end(),small.Intent.begin(),small.Intent.end()))
+        return 1;
+    else
+        return 0;
+}
+set<string> intent::intersection(intent i1,intent i2)//function to return intersection of two sets
+{
+    set<string> inter;
+    vector<string>:: iterator it;
+    set<string>::iterator is;
+    vector<string> v(i2.Intent.size());
+    it=set_intersection(i1.Intent.begin(),i1.Intent.end(),i2.Intent.begin(),i2.Intent.end(),v.begin());
+    v.resize(it-v.begin());
+    for(it=v.begin();it!=v.end();it++)
+        inter.insert(*it);
+
+   return inter;
+}
+set<string> intent::setunion(intent i1,intent i2)//function to return union  of two sets
+{
+    set<string> uni;
+    vector<string>::iterator it;
+    set<string>::iterator is;
+
+    vector<string> v((i1.Intent.size())+(i2.Intent.size()));
+
+    it=set_union(i1.Intent.begin(),i1.Intent.end(),i2.Intent.begin(),i2.Intent.end(),v.begin());
+    v.resize(it-v.begin());
+    for(it=v.begin();it!=v.end();it++)
+        uni.insert(*it);
+
+   return uni;
+}
+//class for concept
+class concept
+{
+
+public:
+    set <string> extent;// a set of objects
+    intent i;// an instance of intent
+    bool isEqual(concept* c,concept* d);
+};
+bool concept::isEqual(concept* c,concept* d)
+{
+        if((c->extent==d->extent)&&(c->i.Intent==d->i.Intent))
+            return true;
+        else
+            return false;
+}
+//class for lattice
+class lattice // a lattice is a graph of concepts
+{
+     list<concept*> *adj;
+public:
+    // an adjacency list of concepts
+    vector<concept*> z;// list of concepts
+    void add_node(concept* c);// function to add node
+    void set_link(concept* u,concept* v);//function to set link
+    void remove_link(concept* u,concept* v);//function to remove link
+    set<concept*> GetParents(concept* c);//function to get parents of the node
+    concept* AddIntent(intent i,concept* generatorConcept);//add intent algorithm
+    concept* GetMaximalConcept(intent in,concept* generatorConcept);
+    void addAllAbove(string s,concept* ObjectConcept);
+    void CreateLatticeIncrementally(vector<string> G,vector<string> M,int I[][5]);
+    void printLattice();
+    lattice();
+};
+lattice::lattice()
+{
+    adj= new list<concept*>[50];
+}
+void printSet(set<string> s)
+{
+   set<string>::iterator i;
+   for(i=s.begin();i!=s.end();i++)
+       cout<<*i<<" ";
+}
+void printConcept(concept* c)
+{
+    printSet(c->extent);
+    //cout<<"\t";
+    cout<<"  ";
+    printSet(c->i.Intent);
+}
+
+void lattice::printLattice()
+{
+    list<concept*>::iterator k;
+    int i;
+    for(i=0;i<z.size();i++)
+    {
+        cout<<"\n";
+       printConcept(z[i]);cout<<"\n->->->->";
+      for(k=adj[i].begin();k!=adj[i].end();k++)
+      {
+        //printConcept(*k);cout<<endl;
+      }
+    }
+}
+void lattice::add_node(concept* c)
+{
+   //cout<<"\nIn ADD_Node"<<endl;
+   this->z.push_back(c);//adds a node
+   //cout<<adj[z.size()-1].size();
+   //cout<<"New size="<<z.size();
+}
+void lattice::set_link(concept* c,concept* d)//set link in a lattice between two concepts
+{
+    int i;
+    //cout<<"\n In SET_LINK";
+    //cout<<"\tSize here:"<<z.size()<<endl;
+    for(i=0;i<z.size();i++)
+        if(z[i]==d)//equality function ????????????
+         {
+             adj[i].push_back(c);
+             break;
+         }
+    return;
+}
+void lattice::remove_link(concept* c,concept* d)//remove link between two concepts
+{
+    int i;
+    // cout<<"\n In REMOVE_LINK";
+     //cout<<"\tSize here:"<<z.size()<<endl;
+    for(i=0;i<z.size();i++)
+        if(z[i]==d)
+        {
+            adj[i].remove(c);
+            break;
+        }
+    return;
+}
+set<concept*> lattice:: GetParents(concept* c)//function that returns the set containing the parents of a concept
+{
+    //cout<<"\nGet parents of the concept:\t";
+    //printConcept(c);
+    set<concept*> parents={};
+    int i,flag=0;
+    for(i=0;i<z.size();i++)
+        {
+             //cout<<z.size()<<endl;
+             //cout<<z[i]<<"\t"<<c;
+            // printConcept(z[i]);
+            if(z[i]==c)//operator overloading function for equality of two concepts
+            {
+                flag=1;
+                break;
+            }
+        }
+        //cout<<"\nflag="<<flag;
+    if(flag==1){
+    list<concept*> ::iterator it;
+    for(it=adj[i].begin();it!=adj[i].end();it++)
+     {
+         parents.insert(*it);
+         //printConcept(*it);
+     }
+
+
+    }
+    //cout<<"\nReturn from GetParents";
+    return parents;
+}
+concept* lattice::GetMaximalConcept(intent in,concept* generatorConcept)//a function to return the maximal concept
+{
+    //cout<<"In getmaximal concept"<<endl;
+    bool parentIsMaximal=true;
+    intent j;
+    while(parentIsMaximal)
+    {
+        set<concept*>parents;
+        set<concept*>::iterator i;
+        parentIsMaximal=false;
+        //cout<<"before getParents"<<endl;
+        parents=this->GetParents(generatorConcept);
+        //cout<<"after getParents"<<endl;
+        for(i=parents.begin();i!=parents.end();i++)
+       {
+            if(j.subset(in,(*i)->i))
+           {
+            generatorConcept=(*i);
+            parentIsMaximal=true;
+            break;
+           }
+       }
+
+    }
+    //cout<<"Generator Concept=";
+    //printConcept(generatorConcept);
+    //cout<<"getmaximal concept return"<<endl;
+    return generatorConcept;
+}
+concept* lattice::AddIntent(intent in,concept* generatorConcept)//add intent algorithm
+{
+    //cout<<"In Add intent"<<endl;
+    generatorConcept=this->GetMaximalConcept(in,generatorConcept);//write the operator overloading function for concept
+    if(generatorConcept->i.Intent==in.Intent)
+        return generatorConcept;
+        //declarations
+    //cout<<"\t In Add Intent\n";
+    set<concept*> generatorParents;
+    generatorParents=this->GetParents(generatorConcept);//write operator overloading function for concept*
+    //cout<<"\t In Add Intent\n";
+    set<concept*> NewParents={};
+    bool AddParent;
+   // int parent,candidate;
+    set<concept*>::iterator candidate;
+    set<concept*>::iterator parent;
+    set<string> newString;
+    if(generatorParents.size()>0){
+    for(candidate=generatorParents.begin();candidate!=generatorParents.end();candidate++)
+    {
+        //cout<<"Generator Parents=";
+       // printConcept(*candidate);
+        intent j;
+        if(!(j.subset((*candidate)->i,in)))
+        {
+                newString=j.intersection((*candidate)->i,in);
+                j.Intent=newString;
+                concept* c=(this->AddIntent(j,*candidate));//write operator overloading function for concept
+                generatorParents.insert(c);
+        }
+        AddParent=true;
+        for(parent=NewParents.begin();parent!=NewParents.end();parent++)
+        {
+            if(j.subset((*parent)->i,(*candidate)->i))
+            {
+                AddParent=false;
+                break;
+            }
+            else if(j.subset((*candidate)->i,(*parent)->i))
+            {
+                //remove(NewParents.begin(),NewParents.end(),(*parent));
+                NewParents.erase(*parent);
+            }
+        }
+        if(AddParent)
+        {
+            NewParents.insert((*candidate));
+        }
+
+    }
+    }
+    concept* NewConcept;
+    NewConcept=new concept;
+    NewConcept->extent=generatorConcept->extent;
+    NewConcept->i.Intent=in.Intent;
+    this->add_node(NewConcept);
+    //cout<<"Return from add_node"<<endl;
+    //cout<<"Size of NewParents:"<<NewParents.size();
+    if(NewParents.size()>0){
+    for(parent=NewParents.begin();parent!=NewParents.end();parent++)
+    {
+        this->remove_link(*parent,generatorConcept);
+        this->set_link(*parent,NewConcept);
+    }
+    }
+    this->set_link(NewConcept,generatorConcept);
+
+    //cout<<"New Concept=";
+    //printConcept(NewConcept);
+    //cout<<"\nreturn from Add Intent"<<endl;
+    //cout<<"----------------------------------------------------------------------------------------------------"<<endl;
+    //cout<<NewConcept;
+    return NewConcept;
+}
+void lattice::addAllAbove(string s,concept* ObjectConcept)//add the object to all above concepts
+{
+    set<concept*> P;
+    P=this->GetParents(ObjectConcept);//write an operator overloading function for concept*
+    if(P.empty()==true)
+        return;
+    set<concept*>::iterator candidate;
+    for(candidate=P.begin();candidate!=P.end();candidate++)
+    {
+
+        (*candidate)->extent.insert(s);
+        this->addAllAbove(s,*candidate);
+    }
+
+}
+void lattice::CreateLatticeIncrementally(vector<string> G,vector<string> M,int I[10][5])//function to form lattice
+{
+    //cout<<"\nIn Create lattice Incrementally";
+    concept* BottomConcept;
+    BottomConcept=new concept;
+    int i,j;
+    for(i=0;i<M.size();i++)
+    BottomConcept->i.Intent.insert(M[i]);
+    BottomConcept->extent={};
+    //cout<<"\nIn CreateLatticeIncrementally";
+    //cout<<"\nThis is Bottom Concept";
+    //printConcept(BottomConcept);
+
+    this->add_node(BottomConcept);
+    set<string> G_dash;
+    for(i=0;i<G.size();i++)
+    {
+        concept* ObjectConcept;
+        ObjectConcept=new concept;
+        intent* g;
+        g = new intent;
+        for(j=0;j<M.size();j++)
+            if(I[i][j]==1)
+             g->Intent.insert(M[j]);
+        ObjectConcept=this->AddIntent(*g,BottomConcept);//write an operator overloading function for concept
+        //cout<<"\n"<<ObjectConcept;
+        //printConcept(ObjectConcept);
+        ObjectConcept->extent.insert(G[i]);
+        //cout<<"Before allAbove"<<endl;
+        this->addAllAbove(G[i],ObjectConcept);
+        //cout<<"After allAbove"<<endl;
+
+   }
+}
+
+int main()
+{
+   // cout<<"Class Object";
+    lattice L;
+    //cout<<"\nAfter Lattice L";
+    vector<string> ext={"1","2","3","4","5","6","7","8","9","ten"};
+    vector<string> intt={"composite","even","odd","prime","square"};
+    int Matrix[10][5]={ 0,0,1,0,1,
+                        0,1,0,1,0,
+                        0,0,1,1,0,
+                        1,1,0,0,1,
+                        0,0,1,1,0,
+                        1,1,0,0,0,
+                        0,0,1,1,0,
+                        1,1,0,0,0,
+                        1,0,1,0,1,
+                        1,1,0,0,0
+                        };
+    //cout<<"\nBefore create Lattice Incrementally";
+    L.CreateLatticeIncrementally(ext,intt,Matrix);
+    L.printLattice();
+    return 0;
+}
